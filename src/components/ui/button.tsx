@@ -1,52 +1,61 @@
-"use client";
+'use client'
 
-import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils"; // class names တွေကို ပေါင်းစည်းပေးမယ့် utility
+import React from "react";
 
-import { cn } from "../../lib/utils";
-
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-donation transition-all duration-300",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-donation transition-all duration-300",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-        hero: "bg-gradient-to-r from-primary to-secondary text-white hover:shadow-lg hover:scale-105 transition-all duration-300 font-semibold",
-        donate: "bg-success text-success-foreground hover:bg-success/90 shadow-donation transition-all duration-300 font-semibold",
-      },
-      size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  },
-);
-
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean;
+// Button ရဲ့ Properties (Props) တွေကို သတ်မှတ်ခြင်း
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  // variant မှာ ခုနက ဆွေးနွေးထားတဲ့ gradient ကိုပါ ထပ်ထည့်လိုက်ပါတယ်
+  variant?: "default" | "ghost" | "outline" | "hero" | "donate" | "gradient"; 
+  size?: "default" | "sm" | "lg";
+  className?: string; // အပြင်ကနေ class ထပ်ပေးဖို့
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
-  }
-);
+export const Button: React.FC<ButtonProps> = ({
+  className = "",
+  variant = "default",
+  size = "default",
+  ...props
+}) => {
+  // 1. အခြေခံ Style များ (Component အားလုံးအတွက်)
+  const baseStyles =
+    "inline-flex items-center justify-center font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
-Button.displayName = "Button";
+  // 2. Variant (အရောင်၊ ပုံစံ) များ
+  const variants = {
+    default: "bg-blue-600 text-white hover:bg-blue-700 rounded-lg focus:ring-blue-500",
 
-export { Button, buttonVariants };
+      donate:
+        "text-white font-bold rounded-md focus:ring-red-500 \
+        bg-[hsl(var(--primary))] hover:bg-[hsl(var(--secondary))]",
+    
+    ghost: "bg-transparent hover:bg-gray-100 text-gray-700 rounded-lg",
+    
+    outline:
+      "border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg focus:ring-gray-500",
+      
+    // Gradient Button (ပုံထဲက အရောင်ကို ခန့်မှန်းပြီး ထည့်သွင်း)
+    gradient: 
+      "text-white font-bold rounded-xl shadow-lg transform transition-transform hover:scale-[1.02] active:scale-[0.98] \
+       bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 focus:ring-blue-500",
+    
+    hero: "bg-green-600 text-white font-bold hover:bg-green-700 rounded-lg focus:ring-green-500",
+    
+  
+  };
+
+  // 3. Size (အရွယ်အစား) များ
+  const sizes = {
+    default: "px-4 py-2 text-sm",
+    sm: "px-3 py-1 text-xs",
+    lg: "px-6 py-3 text-base",
+  };
+
+  return (
+    <button
+      // base, variant, size, ပြီးနောက် အပြင်က လာတဲ့ className ကို ပေါင်းစည်းခြင်း
+      className={cn(baseStyles, variants[variant], sizes[size], className)}
+      {...props}
+    />
+  );
+};
