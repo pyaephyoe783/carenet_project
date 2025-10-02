@@ -4,6 +4,7 @@ import { icons } from "lucide-react";
 import React, { useState } from "react";
 import { Menu, X, Heart, User, Home, Users, BarChart3 } from "lucide-react";
 import { Button } from "../ui/button";
+import Link from "next/link";
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -19,10 +20,16 @@ const Navigation = () => {
     { href: "#dashboard", label: "Dashboard", icon: BarChart3 },
     { href: "#my-donations", label: "My Donations", icon: Heart },
     { href: "#profile", label: "Profile", icon: User },
+    { href: "#about", label: "About Us", icon: Users }
   ];
 
   const linksToShow = isAuthenticated ? userLinks : vistorLinks;
 
+/*************  ✨ Windsurf Command ⭐  *************/
+/**
+ * Handles link clicks by closing the mobile menu if it is open.
+ */
+/*******  b7129258-c371-4eac-9956-b0f99ab1afaf  *******/
   const handleLinkClick = () => {
     // Link ကို နှိပ်ပြီးတာနဲ့ Mobile Menu ကို ပြန်ပိတ်ဖို့
     // Next.js မှာ router.push သုံးရင်တော့ ဒီလို မလိုပါဘူး
@@ -63,15 +70,15 @@ const Navigation = () => {
 
         <div className="hidden md:flex gap-6">
           {linksToShow.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              onClick={handleLinkClick}
-              className="hover:text-blue-500 flex items-center gap-2"
-            >
-              <link.icon size={20} /> {link.label}
-            </a>
-          ))}
+                <Link // 💡 a tag အစား Link Component သုံးပါ
+                    key={link.href}
+                    href={link.href}
+                    // onClick ကို ဖယ်ရှားနိုင်ပါတယ် (သို့မဟုတ်) ထားရှိပါ
+                    className="hover:text-blue-500 flex items-center gap-2"
+                >
+                    <link.icon size={20} /> {link.label}
+                </Link>
+            ))}
         </div>
 
         <div className="hidden md:flex gap-4">
@@ -82,9 +89,23 @@ const Navigation = () => {
                 className="cursor-pointer hover:bg-gray-200"
                 onClick={() => login("user")}
               >
-                Sign In
+
+                 <Link 
+                        href="/login" // ✅ ဒီနေရာမှာ အစ်ကို ဖန်တီးထားတဲ့ Route ကို ထည့်ပါ
+                        
+                    >
+                        Sign In
+                    </Link>
+               
               </Button>
-              <Button variant="gradient">Donate Now</Button>
+              <Button variant="gradient" >
+                    <Link 
+                        href="/register" // ✅ ဒီနေရာမှာ အစ်ကို ဖန်တီးထားတဲ့ Route ကို ထည့်ပါ
+                        
+                    >
+                        Sign Up
+                    </Link>
+                </Button>
             </>
           ) : (
             <>
@@ -113,18 +134,18 @@ const Navigation = () => {
       {isMenuOpen && (
         <div className="md:hidden flex flex-col mt-4 space-y-2 bg-white shadow-lg rounded-lg border border-gray-100">
           {linksToShow.map((link) => {
-            const Icon = link.icon;
-            return (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={handleLinkClick}
-                className="flex items-center gap-2 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition duration-150"
-              >
-                <Icon size={20} /> {link.label}
-              </a>
-            );
-          })}
+                    const Icon = link.icon;
+                    return (
+                        <Link // 💡 Link Component သုံးပါ
+                            key={link.href}
+                            href={link.href}
+                            onClick={handleLinkClick}
+                            className="flex items-center gap-2 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition duration-150"
+                        >
+                            <Icon size={20} /> {link.label}
+                        </Link>
+                    );
+                })}
 
           <div className="space-y-2 p-4 border-t border-gray-100">
             {!isAuthenticated ? (
