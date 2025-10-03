@@ -1,9 +1,11 @@
+import { authStore } from "@/store/auth-result.store";
 import axios from "axios";
+import { refreshToken } from "../anonymous/client";
 
 
 export function anonymousClient() {
     return axios.create({
-        baseURL: 'http://10.10.1.84:8080/anonymous', 
+        baseURL: 'http://10.10.1.61:8080/anonymous', 
         timeout: 3000
     })
 }
@@ -11,15 +13,15 @@ export function anonymousClient() {
 export function securedClient() {
 
     const instance = axios.create({
-        baseURL: 'http://localhost:8080',
+        baseURL: 'http://10.10.1.61:8080',
         timeout: 3000
     })
 
-    instance.interceptors.request.use(config => {
+    instance.interceptors.request.use(config => { 
         const {auth} = authStore.getState()
     
         if(auth) {
-            config?.headers.set('Authorization', Bearer ${auth.accessToken})
+            config?.headers.set('Authorization', `Bearer ${auth.accessToken}`)
         }
         return config
     })

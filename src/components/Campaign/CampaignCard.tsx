@@ -17,12 +17,31 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign }) => {
     const formatCurrency = (amount : number) => `$${(amount / 1000).toFixed(0)}K`;
 
     // Category ပေါ်မူတည်ပြီး အရောင်ရွေးချယ်ခြင်း
-    const categoryColor = {
-        'Education': 'bg-blue-600',
-        'Water': 'bg-teal-600',
-        'Healthcare': 'bg-red-600',
-        'Food': 'bg-yellow-600',
-    }[campaign.category] || 'bg-gray-600';
+  const categoryColor = {
+    // 🔑 အခြေခံ ၄ ခု
+    'Education': 'bg-blue-600',
+    'Water': 'bg-teal-600',
+    'Healthcare': 'bg-red-600',
+    'Food': 'bg-yellow-600',
+
+    // 🔑 အလယ်အလတ် ၉ ခု
+    'Refugee Support': 'bg-orange-600',
+    'Environment': 'bg-green-600',
+    'Animals': 'bg-pink-600',
+    'Arts & Culture': 'bg-purple-600',
+    'Community': 'bg-indigo-600',
+    'Human Rights': 'bg-gray-600',
+    'Technology': 'bg-cyan-600',
+    'Sports': 'bg-lime-600',
+    'Women Empowerment': 'bg-pink-500', // 💡 pink-500
+
+    // 🔑 နောက်ဆုံးထပ်တိုး ၄ ခု
+    'Elderly Care': 'bg-fuchsia-600',
+    'Conflict Displaced': 'bg-red-700', // 💡 red-700
+    'Infrastructure': 'bg-slate-600',
+    'Agriculture': 'bg-amber-700',
+
+}[campaign.category] || 'bg-gray-600';
 
     return (
         // 🔑 Card တစ်ခုလုံးကို Next.js Link Component ဖြင့် ခြုံလိုက်ပါ

@@ -10,7 +10,18 @@ export type SignUpForm = SignInForm & {
 export interface AuthResult {
     email : string
     name : string
-    role : 'Admin' | 'Member'
+    role : 'Admin' | 'Member' | 'BranchAdmin'
     accessToken : string
     refreshToken : string
+}
+
+export interface AddressResult {
+    id : number
+    name : string
+}
+
+export interface CategoryResult {
+    id : number
+    name : string
+    description : string    
 }
