@@ -6,7 +6,7 @@ import HeroSection from "@/components/HeroSection/HeroSection";
 import Image from "next/image";
 import AboutPage from "@/components/AboutUs/AboutPage";
 import AboutUsPage from "@/components/AboutUs/AboutPage";
-import CategorySelector from "@/components/Campaign/CategorySelector";
+// import CategorySelector from "@/components/Campaign/CategorySelector";
 
 export default function Home() {
     const { isAuthenticated } = useAuthStore(); 
@@ -19,7 +19,7 @@ export default function Home() {
             ) : (
                 <HeroSection />
             )}
-            <CategorySelector />
+            {/* <CategorySelector /> */}
             <AboutUsPage />
         </div>
     );

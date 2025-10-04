@@ -1,53 +1,64 @@
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
 import { authStore } from "@/store/auth-result.store";
-import axios from "axios";
 import { refreshToken } from "../anonymous/client";
-
 
 export function anonymousClient() {
     return axios.create({
-        baseURL: 'http://10.10.1.61:8080/anonymous', 
+        baseURL: 'http://localhost:8080/anonymous',
         timeout: 3000
     })
 }
 
-export function securedClient() {
+export function securedClient(): AxiosInstance {
+  const instance = axios.create({
+    baseURL: "http://localhost:8080",
+    timeout: 5000,
+  });
 
-    const instance = axios.create({
-        baseURL: 'http://10.10.1.61:8080',
-        timeout: 3000
-    })
+  // ✅ Correctly typed interceptor
+  instance.interceptors.request.use(
+    (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+      const { auth } = authStore.getState();
 
-    instance.interceptors.request.use(config => { 
-        const {auth} = authStore.getState()
-    
-        if(auth) {
-            config?.headers.set('Authorization', `Bearer ${auth.accessToken}`)
+      // Ensure headers exist
+      if (!config.headers) {
+       config.headers = new Headers() as any;
+      }
+
+      if (auth?.accessToken) {
+        config.headers["Authorization"] = `Bearer ${auth.accessToken}`;
+      }
+
+      return config;
+    }
+  );
+
+  instance.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const originalRequest = error.config;
+      const { auth, setAuth } = authStore.getState();
+
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+
+        try {
+          const refreshResult = await refreshToken(auth?.refreshToken || "");
+          if (refreshResult) {
+            setAuth(refreshResult);
+
+            // retry last request
+            originalRequest.headers["Authorization"] = `Bearer ${refreshResult.accessToken}`;
+            return instance(originalRequest);
+          }
+        } catch (refreshErr) {
+          console.error("Token refresh failed:", refreshErr);
         }
-        return config
-    })
+      }
 
-    instance.interceptors.response.use(response => {
-        return response
-    }, async (error) => {
+      return Promise.reject(error);
+    }
+  );
 
-        const originalRequest = error.config
-        const {auth, setAuth} = authStore.getState()
-
-        if(error.status == 408 && !originalRequest._retry) {
-            originalRequest._retry = true
-            
-            // Refresh token
-            const refreshResult = await refreshToken(auth?.refreshToken || '')
-            setAuth(refreshResult)
-
-            // Retry last request
-            instance(originalRequest)
-
-            return
-        }
-
-        return Promise.reject(error)
-    })
-
-    return instance
+  return instance;
 }

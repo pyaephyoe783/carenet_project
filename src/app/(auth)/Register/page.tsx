@@ -2,9 +2,13 @@
 
 import React, { JSX, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { signUp } from "@/lib/api/signup";
-import { AddressResult } from "@/app/anonymous/common";
-import { getADistrictsByRegion, getAllRegions, getTownshipsByDistrict } from "@/app/anonymous/client";
+import { AddressResult, SignUpForm as SignUpFormType } from "@/app/anonymous/common";
+import {
+  getADistrictsByRegion,
+  getAllRegions,
+  getTownshipsByDistrict,
+  signUpRequest,
+} from "@/app/anonymous/client";
 
 export default function SignUpForm(): JSX.Element {
   const [email, setEmail] = useState("");
@@ -25,6 +29,7 @@ export default function SignUpForm(): JSX.Element {
   const [selectedDistrict, setSelectedDistrict] = useState<number | null>(null);
   const [selectedTownship, setSelectedTownship] = useState<number | null>(null);
 
+  // Fetch regions
   const fetchRegions = useCallback(async () => {
     try {
       const result = await getAllRegions();
@@ -39,6 +44,7 @@ export default function SignUpForm(): JSX.Element {
     fetchRegions();
   }, [fetchRegions]);
 
+  // Fetch districts
   useEffect(() => {
     if (selectedRegion === null) {
       setDistricts([]);
@@ -47,7 +53,6 @@ export default function SignUpForm(): JSX.Element {
       setSelectedTownship(null);
       return;
     }
-
     const fetchDistricts = async () => {
       try {
         const result = await getADistrictsByRegion(selectedRegion);
@@ -60,17 +65,16 @@ export default function SignUpForm(): JSX.Element {
         setError("Failed to load districts.");
       }
     };
-
     fetchDistricts();
   }, [selectedRegion]);
 
+  // Fetch townships
   useEffect(() => {
     if (selectedDistrict === null) {
       setTownships([]);
       setSelectedTownship(null);
       return;
     }
-
     const fetchTownships = async () => {
       try {
         const result = await getTownshipsByDistrict(selectedDistrict);
@@ -81,25 +85,10 @@ export default function SignUpForm(): JSX.Element {
         setError("Failed to load townships.");
       }
     };
-
     fetchTownships();
   }, [selectedDistrict]);
 
-  const handleRegionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const id = parseInt(e.target.value);
-    setSelectedRegion(Number.isNaN(id) ? null : id);
-  };
-
-  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const id = parseInt(e.target.value);
-    setSelectedDistrict(Number.isNaN(id) ? null : id);
-  };
-
-  const handleTownshipChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const id = parseInt(e.target.value);
-    setSelectedTownship(Number.isNaN(id) ? null : id);
-  };
-
+  // Handle submit
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
@@ -107,50 +96,44 @@ export default function SignUpForm(): JSX.Element {
     setIsLoading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("email", email);
-      formData.append("name", name);
-      formData.append("password", password);
-      formData.append("address", address);
-      if (phone) formData.append("phone", phone);
-      if (selectedRegion !== null) formData.append("regionId", String(selectedRegion));
-      if (selectedDistrict !== null) formData.append("districtId", String(selectedDistrict));
-      if (selectedTownship !== null) formData.append("townshipId", String(selectedTownship));
-      if (profileImage) formData.append("profileImage", profileImage);
+      if (!selectedTownship) {
+        setError("Please select a township.");
+        setIsLoading(false);
+        return;
+      }
 
-      try {
-  await signUp({
-    email,
-    name,
-    password,
-    address,
-    township: selectedTownship ? Number(selectedTownship) : "",
-    phone,
-    profileImage,
-  });
+      const form: SignUpFormType = {
+        email,
+        name,
+        password,
+        address,
+        township: selectedTownship,
+        phone,
+      };
 
-  setSuccess(true);
-  setEmail("");
-  setName("");
-  setPassword("");
-  setPhone("");
-  setAddress("");
-  setProfileImage(null);
-  setSelectedRegion(null);
-  setSelectedDistrict(null);
-  setSelectedTownship(null);
-  setDistricts([]);
-  setTownships([]);
-} catch (err) {
-  console.error("Signup Error:", err);
-  setError((err as Error)?.message ?? "An unknown error occurred during signup.");
-  setSuccess(false);
-} finally {
-  setIsLoading(false);
-}
+      const response = await signUpRequest(form, profileImage);
+
+      if (response?.status === 200) {
+        setSuccess(true);
+        setEmail("");
+        setName("");
+        setPassword("");
+        setPhone("");
+        setAddress("");
+        setProfileImage(null);
+        setSelectedRegion(null);
+        setSelectedDistrict(null);
+        setSelectedTownship(null);
+        setDistricts([]);
+        setTownships([]);
+      } else {
+        setError("Signup failed. Please try again.");
+      }
     } catch (err) {
-      console.error("Unexpected Error:", err);
-      setError("An unexpected error occurred.");
+      console.error("Signup Error:", err);
+      setError((err as Error)?.message ?? "An unknown error occurred during signup.");
+      setSuccess(false);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -170,34 +153,39 @@ export default function SignUpForm(): JSX.Element {
         <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address" required className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <select value={selectedRegion ?? ""} onChange={handleRegionChange} required className="w-full p-3 border border-gray-300 bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150">
+          <select value={selectedRegion ?? ""} onChange={(e) => setSelectedRegion(Number(e.target.value) || null)} required className="w-full p-3 border border-gray-300 bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500">
             <option value="" disabled>Select Region</option>
-            {regions.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}
+            {regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
 
-          <select value={selectedDistrict ?? ""} onChange={handleDistrictChange} required disabled={!selectedRegion || districts.length === 0} className="w-full p-3 border border-gray-300 bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 disabled:bg-gray-100 disabled:text-gray-500">
+          <select value={selectedDistrict ?? ""} onChange={(e) => setSelectedDistrict(Number(e.target.value) || null)} required disabled={!selectedRegion} className="w-full p-3 border border-gray-300 bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100">
             <option value="" disabled>Select District</option>
-            {districts.map((district) => <option key={district.id} value={district.id}>{district.name}</option>)}
+            {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
 
-          <select value={selectedTownship ?? ""} onChange={handleTownshipChange} required disabled={!selectedDistrict || townships.length === 0} className="w-full p-3 border border-gray-300 bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 disabled:bg-gray-100 disabled:text-gray-500">
+          <select value={selectedTownship ?? ""} onChange={(e) => setSelectedTownship(Number(e.target.value) || null)} required disabled={!selectedDistrict} className="w-full p-3 border border-gray-300 bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100">
             <option value="" disabled>Select Township</option>
-            {townships.map((township) => <option key={township.id} value={township.id}>{township.name}</option>)}
+            {townships.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Profile Image (Optional)</label>
-          <input type="file" onChange={(e) => setProfileImage(e.target.files?.[0] ?? null)} className="w-full p-3 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+          <input
+            type="file"
+            onChange={(e) => setProfileImage(e.target.files?.[0] ?? null)}
+            className="w-full p-3 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          />
         </div>
 
-        <button type="submit" disabled={isLoading} className="w-full p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-150 disabled:bg-blue-400">
+        <button type="submit" disabled={isLoading} className="w-full p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:bg-blue-400">
           {isLoading ? "Signing Up..." : "Sign Up"}
         </button>
       </form>
 
       <p className="mt-4 text-center text-sm text-gray-600">
-        Already have an account? <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">Log In</Link>
+        Already have an account?{" "}
+        <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">Log In</Link>
       </p>
     </div>
   );

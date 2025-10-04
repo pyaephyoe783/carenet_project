@@ -3,8 +3,13 @@ export interface SignInForm {
     password : string
 }
 
-export type SignUpForm = SignInForm & {
-    name : string
+export type SignUpForm = {
+    email : string,
+    password : string,
+    name : string,
+    phone : string,
+    address : string,
+    township : number
 }
 
 export interface AuthResult {

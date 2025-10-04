@@ -1,171 +1,241 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { getAllCategories } from '@/app/anonymous/admin/admin';
-import { CategoryResult } from '@/app/anonymous/common';
-import { authStore } from '@/store/auth-result.store';
+import React, { useEffect, useState, useCallback } from "react";
+import { useForm } from "react-hook-form";
+import { authStore, userEmail } from "@/store/auth-result.store";
+import { getAllCategories } from "@/app/anonymous/admin/admin";
+import { CategoryResult, AddressResult } from "@/app/anonymous/common";
+import { getAllRegions, getADistrictsByRegion, getTownshipsByDistrict } from "@/app/anonymous/client";
+import { securedClient } from "@/app/file";
 
-// 📌 Backend ကို ပို့မယ့် Form Data Model
 interface CreateCampaignForm {
   title: string;
-  description: string;
+  shortDescription: string;
+  content: string;
   goalAmount: number;
-  durationDays: number;
-  type: 'Organization' | 'Personal';
-  category: number;
+  durationInDays: number;
+  isOrganization: boolean;
   organizationName?: string;
-  contactOrganization?: string;
+  address: string;
+  phone: string;
+  email: string;
+  eventType: "URGENT" | "NORMAL";
+  categoryIds: number[];
   photos: FileList;
 }
 
-const CampaignCreateForm = () => {
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<CreateCampaignForm>();
-
-  // 🔑 API က ဆွဲလိုက်မယ့် Category State
+export default function CampaignCreateForm() {
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<CreateCampaignForm>();
+  
   const [categories, setCategories] = useState<CategoryResult[]>([]);
+  const [regions, setRegions] = useState<AddressResult[]>([]);
+  const [districts, setDistricts] = useState<AddressResult[]>([]);
+  const [townships, setTownships] = useState<AddressResult[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState<number | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = useState<number | null>(null);
+  const [selectedTownship, setSelectedTownship] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const isOrganization = watch("isOrganization");
+
+  // Load categories
   const fetchCategories = useCallback(async () => {
     try {
       const result = await getAllCategories();
       setCategories(result || []);
-      console.log("Authentication   llll"+authStore.getState().isAuthenticated);
-      console.log("Fetched Categories:", result);
     } catch (e) {
       console.error(e);
       setError("Failed to load categories.");
     }
   }, []);
 
+  // Load regions
+  const fetchRegions = useCallback(async () => {
+    try {
+      const result = await getAllRegions();
+      setRegions(result || []);
+    } catch (e) {
+      console.error(e);
+      setError("Failed to load regions.");
+    }
+  }, []);
+
   useEffect(() => {
     fetchCategories();
-  }, [fetchCategories]);
+    fetchRegions();
+  }, [fetchCategories, fetchRegions]);
 
-  // 🔑 Campaign Type
-  const campaignType = watch('type', 'Personal');
+  // Load districts
+  useEffect(() => {
+    if (!selectedRegion) {
+      setDistricts([]);
+      setSelectedDistrict(null);
+      setTownships([]);
+      setSelectedTownship(null);
+      return;
+    }
+    const fetchDistricts = async () => {
+      try {
+        const result = await getADistrictsByRegion(selectedRegion);
+        setDistricts(result || []);
+      } catch (e) {
+        console.error(e);
+        setError("Failed to load districts.");
+      }
+    };
+    fetchDistricts();
+  }, [selectedRegion]);
 
-  // 📌 Form Submission Logic
+  // Load townships
+  useEffect(() => {
+    if (!selectedDistrict) {
+      setTownships([]);
+      setSelectedTownship(null);
+      return;
+    }
+    const fetchTownships = async () => {
+      try {
+        const result = await getTownshipsByDistrict(selectedDistrict);
+        setTownships(result || []);
+      } catch (e) {
+        console.error(e);
+        setError("Failed to load townships.");
+      }
+    };
+    fetchTownships();
+  }, [selectedDistrict]);
+
+  // Submit
   const onSubmit = async (data: CreateCampaignForm) => {
-    console.log("Form Data:", data);
-    alert('Campaign Creation Data Ready! Check Console.');
-    // 💡 အမှန်တကယ် API သို့ပို့မယ်ဆိုရင် FormData သုံးပြီး file တွေပါပို့ဖို့လိုမယ်
+    if (!selectedTownship) {
+      alert("Please select a township.");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+
+      const campaignJson = {
+        title: data.title,
+        shortDescription: data.shortDescription,
+        content: data.content,
+        goalAmount: data.goalAmount,
+        currentAmount: 0,
+        durationInDays: data.durationInDays,
+        isOrganization: data.isOrganization,
+        organizationName: data.isOrganization ? data.organizationName : "",
+        address: data.address,
+        phone: data.phone,
+        email: data.email || userEmail(),
+        township: selectedTownship,
+        categoryIdList: data.categoryIds,
+        eventType: data.eventType,
+      };
+
+      formData.append("form", new Blob([JSON.stringify(campaignJson)], { type: "application/json" }));
+
+      if (data.photos && data.photos.length > 0) {
+        Array.from(data.photos).forEach(file => formData.append("files", file));
+      }
+
+      const result = await securedClient().post("/member/campaign", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      alert("✅ Campaign created successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("❌ Failed to create campaign.");
+    }
   };
 
   return (
     <div className="max-w-3xl mx-auto my-12 p-8 bg-white shadow-2xl rounded-xl">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800 text-center">Start a New Campaign</h2>
-      <p className="text-center text-gray-600 mb-8">Tell your story and raise funds for your chosen cause.</p>
+      <h2 className="text-3xl font-bold mb-6 text-gray-800 text-center">Create New Campaign</h2>
+
+      {error && <p className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">{error}</p>}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Basic Info */}
+        <input type="text" placeholder="Title" {...register("title", { required: true })} className="w-full p-3 border rounded-lg" />
+        <input type="text" placeholder="Short Description" {...register("shortDescription", { required: true })} className="w-full p-3 border rounded-lg" />
+        <textarea placeholder="Content" rows={4} {...register("content", { required: true })} className="w-full p-3 border rounded-lg" />
 
-        {/* 1. Category Select */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Select Category</label>
-          <select
-            {...register('category', { required: 'Campaign category is required.' })}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-          >
-            <option value="">-- Choose a Category --</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-          {errors.category && <p className="text-sm text-red-500 mt-1">{errors.category.message}</p>}
-          {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+        {/* Goal + Duration */}
+        <div className="grid grid-cols-2 gap-4">
+          <input type="number" placeholder="Goal Amount" {...register("goalAmount", { required: true, valueAsNumber: true })} className="w-full p-3 border rounded-lg" />
+          <input type="number" placeholder="Duration (Days)" {...register("durationInDays", { required: true, valueAsNumber: true })} className="w-full p-3 border rounded-lg" />
         </div>
 
-        {/* 2. Campaign Type */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Campaign Type</label>
-          <select
-            {...register('type', { required: 'Campaign type is required.' })}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-          >
-            <option value="Personal">Personal</option>
-            <option value="Organization">Organization</option>
-          </select>
+        {/* Type of Campaign */}
+        <div className="flex items-center gap-3">
+          <input type="checkbox" {...register("isOrganization")} id="isOrg" />
+          <label htmlFor="isOrg" className="text-gray-700">Is this an Organization Campaign?</label>
         </div>
 
-        {/* 3. Conditional Fields */}
-        {campaignType === 'Organization' && (
-          <div className="space-y-6 border border-dashed border-gray-300 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-700">Organization Details</h3>
-
-            <input
-              type="text"
-              placeholder="Organization Name"
-              {...register('organizationName', { required: 'Organization name is required for this type.' })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-            />
-            {errors.organizationName && <p className="text-sm text-red-500 mt-1">{errors.organizationName.message}</p>}
-
-            <input
-              type="text"
-              placeholder="Organization Contact (Phone/Email)"
-              {...register('contactOrganization', { required: 'Contact is required.' })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-            />
-            {errors.contactOrganization && <p className="text-sm text-red-500 mt-1">{errors.contactOrganization.message}</p>}
-          </div>
+        {isOrganization && (
+          <input type="text" placeholder="Organization Name" {...register("organizationName", { required: true })} className="w-full p-3 border rounded-lg" />
         )}
 
-        {/* 4. Core Fields */}
-        <input
-          type="text"
-          placeholder="Campaign Title"
-          {...register('title', { required: 'Title is required.' })}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-        />
+        {/* Contact Info */}
+        <input type="text" placeholder="Address" {...register("address", { required: true })} className="w-full p-3 border rounded-lg" />
+        <input type="tel" placeholder="Phone" {...register("phone", { required: true })} className="w-full p-3 border rounded-lg" />
+        <input type="email" placeholder="Email" {...register("email", { required: true })} className="w-full p-3 border rounded-lg" />
 
-        <textarea
-          rows={4}
-          placeholder="Detailed Description of your Campaign"
-          {...register('description', { required: 'Description is required.' })}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-        />
+        {/* Region → District → Township */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <select value={selectedRegion ?? ""} onChange={e => setSelectedRegion(Number(e.target.value) || null)} required className="w-full p-3 border rounded-lg">
+            <option value="">Select Region</option>
+            {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
 
-        <div className="grid grid-cols-2 gap-4">
-          <input
-            type="number"
-            step="1000"
-            placeholder="Goal Amount (e.g., 50000)"
-            {...register('goalAmount', { required: 'Goal amount is required.', valueAsNumber: true, min: 1000 })}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-          />
-          <input
-            type="number"
-            placeholder="Duration (Days)"
-            {...register('durationDays', { required: 'Duration is required.', valueAsNumber: true, min: 1 })}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-          />
+          <select value={selectedDistrict ?? ""} onChange={e => setSelectedDistrict(Number(e.target.value) || null)} required disabled={!selectedRegion} className="w-full p-3 border rounded-lg disabled:bg-gray-100">
+            <option value="">Select District</option>
+            {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+
+          <select value={selectedTownship ?? ""} onChange={e => setSelectedTownship(Number(e.target.value) || null)} required disabled={!selectedDistrict} className="w-full p-3 border rounded-lg disabled:bg-gray-100">
+            <option value="">Select Township</option>
+            {townships.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
         </div>
 
-        {/* 5. Photo Upload */}
+        {/* Categories */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Campaign Photo (Max 5)</label>
+          <label className="block mb-2 text-sm font-medium text-gray-700">Categories</label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {categories.map(cat => (
+              <label key={cat.id} className="flex items-center gap-2">
+                <input type="checkbox" value={cat.id} {...register("categoryIds", { required: true })} />
+                <span>{cat.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Event Type */}
+        <select {...register("eventType", { required: true })} className="w-full p-3 border rounded-lg">
+          <option value="NORMAL">Normal</option>
+          <option value="URGENT">Urgent</option>
+        </select>
+
+        {/* Photos */}
+        <div>
+          <label className="block mb-1">Upload Photos</label>
           <input
             type="file"
             accept="image/*"
             multiple
-            {...register('photos', { required: 'At least one photo is required.' })}
-            className="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+            {...register("photos", { required: true })}
+            className="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
           />
-          {errors.photos && <p className="text-sm text-red-500 mt-1">{errors.photos.message}</p>}
+          <p className="text-sm text-gray-500 mt-1">You can select multiple images at once (Ctrl+Click or Shift+Click).</p>
         </div>
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full p-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition duration-150 disabled:bg-purple-400"
-        >
+        <button type="submit" disabled={isSubmitting} className="w-full p-3 bg-purple-600 text-white rounded-lg">
           {isSubmitting ? "Submitting..." : "Create Campaign"}
         </button>
       </form>
     </div>
   );
-};
-
-export default CampaignCreateForm;
+}
