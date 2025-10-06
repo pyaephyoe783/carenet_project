@@ -21,6 +21,7 @@ interface CreateCampaignForm {
   email: string;
   eventType: "URGENT" | "NORMAL";
   categoryIds: number[];
+  requestMessage: string;
   photos: FileList;
 }
 
@@ -129,6 +130,7 @@ export default function CampaignCreateForm() {
         email: data.email || userEmail(),
         township: selectedTownship,
         categoryIdList: data.categoryIds,
+        requestMessage: data.requestMessage,
         eventType: data.eventType,
       };
 
@@ -181,6 +183,8 @@ export default function CampaignCreateForm() {
         <input type="text" placeholder="Address" {...register("address", { required: true })} className="w-full p-3 border rounded-lg" />
         <input type="tel" placeholder="Phone" {...register("phone", { required: true })} className="w-full p-3 border rounded-lg" />
         <input type="email" placeholder="Email" {...register("email", { required: true })} className="w-full p-3 border rounded-lg" />
+        <input type="text" placeholder="Request to" {...register("requestMessage", { required: true })} className="w-full p-3 border rounded-lg" />
+
 
         {/* Region → District → Township */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
